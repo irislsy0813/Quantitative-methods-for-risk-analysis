@@ -1,0 +1,302 @@
+
+## load packages 
+library(tidyr)
+library(dplyr)
+
+## data cleaning 
+stocks      = read.csv("stocks.csv")
+stocks$RET  = as.numeric(as.character(stocks$RET))
+stocks$date = as.Date(as.character(stocks$date), format="%Y%m%d")
+stocks      = stocks %>% filter(TICKER!="" & RET!="")
+dups        = which(duplicated(stocks[,c("TICKER","date")]))
+stocks      = stocks[-dups,]
+
+## new variable 
+stocks$month = paste(format(stocks$date, "%Y-%m"),"-01",sep="")
+stocks$month = as.Date(stocks$month)
+
+## function 
+agg = function(r) prod(1+r, na.rm=TRUE) - 1
+mnthly = stocks %>%
+  group_by(TICKER, month) %>%
+  summarize(RET = agg(RET), SNP = agg(sprtrn))
+
+## 
+RET   = as.data.frame(mnthly[,-4]) %>% spread(TICKER, RET)
+SNP   = as.data.frame(mnthly[,c("month","SNP")])
+SNP   = SNP[match(unique(SNP$month),SNP$month),]
+dgrid = as.Date(c("2010-01-01", "2011-01-01","2012-01-01",
+	"2013-01-01", "2014-01-01","2015-01-01","2016-01-01","2017-01-01"))
+RET   = RET %>% select(-MPET)
+
+## T-bill data 
+tbills      = read.csv("tbills.csv")
+tbills$date = as.Date(tbills$date)
+
+
+par(mai=c(.6,.8,.1,.1))
+matplot(RET[,1], RET[,-1], xlab="", ylab="Return", bty="n",
+	type="l", col=heat.colors(24), lty=2, xaxt="n", yaxt="n")
+axis(1, at=as.numeric(dgrid), labels=2010:2017)
+axis(2, at=c(-.5,0,.5))
+lines(tbills, lwd=2, col=8)
+lines(SNP, lwd=2)
+legend("top", lwd=2, legend="S&P500", bty="n")
+
+
+
+##-------------------------------------------------------
+## Model-based analysis 
+##-------------------------------------------------------
+bigs = read.csv("bigstocks.csv", header=FALSE,as.is=TRUE)
+exr  = (as.matrix(RET[,bigs[,1]]) - tbills[,2])
+mkt  = (SNP[,2] - tbills[,2])
+
+## Scatter Plot 
+plot(x=mkt, y=exr)
+
+
+## CAPM 
+capm = lm(exr ~ mkt)
+(ab = t(coef(capm))[,2:1])
+
+ab = ab[-9,]
+
+par(mai=c(.8,.8,0,0), xpd=FALSE)
+plot(ab, type="n", bty="n", xlab="beta", ylab="alpha")
+abline(v=1, lty=2, col=8)
+abline(h=0, lty=2, col=8)
+text(ab, labels=rownames(ab), cex=bigs[,2]/350, col="navy") 
+
+
+
+getwd() # this will print your working directory
+
+## read the data
+trucks = read.csv("pickup.csv")
+ 
+xx = seq(500,30000,length=1000)
+plot(xx, dnorm(xx,mean(trucks$price), sd(trucks$price)))
+
+## explore a bit
+head(trucks)
+nrow(trucks) # sample size
+trucks[1,] # the first observation
+trucks[1:3,] # the first three observations
+trucks[1:3,1] # the first variable (year)
+trucks$year[1:3] # same thing
+trucks[1:3,'year'] # same thing again
+summary(trucks) # summary of each variable
+trucks[trucks$miles>200000,] # some real clunkers
+
+## the make variable is special
+class(trucks$make)  # it is a factor (categorical)
+levels(trucks$make) # with 3 levels
+trucks$make[1:2]    # the first two obs are GMC and Dodge
+as.numeric(trucks$make[1:2]) # which R calls levels 3 and 1
+
+## plots
+hist(trucks$price) ## a histogram
+plot(price ~ make, data=trucks) ## a boxplot
+plot(price~miles, data=trucks) ## simple scatterplot
+plot(price~miles, data=trucks, log="y") ## price on log scale
+plot(price~miles, data=trucks, log="y", col=trucks$make) ## in color
+## add a legend (colors 1,2,3 are black,red,green)
+legend("topright", fill=1:3, legend=levels(trucks$make))
+
+## regressions: write these models out, make sure you understand them!
+
+## main effects, regression of log price on miles, year, make
+## `glm' is generalized linear model; this is your least-squares regression
+fit_maineffects = glm(log(price) ~ make + miles + year, data=trucks) # ~. means `on everything'
+## summarize the regression model
+summary(fit_maineffects) 
+## what is the 95% CI for effect of miles on log price?
+## why are there only two brand effects?
+
+## interaction: allow mileage depreciation to depend upon make.
+## in glm formulas, '+' means 'and', '*' means 'interacted with'
+fit_interact <- glm(log(price) ~ year + miles*make, data=trucks) 
+summary(fit_interact)
+## what is the mileage depreciation rate for each of Dodge, Ford, and GMC?
+
+
+
+DATA = read.csv(file="QuestionnaireData.csv", header=TRUE, sep=",")
+
+##-----------------
+## data properties
+##-----------------
+names(DATA)
+summary(DATA)
+
+##-----------
+## table
+##-----------
+## table
+table(DATA$Gender)
+table(DATA$Opinion)
+
+
+##-----------
+## histogram
+##-----------
+hist(DATA$Age)
+hist(DATA$Opinion)
+hist(DATA$Gender)   ## <== This line does not work.
+
+##----------
+## ggplot2
+##----------
+## install ggplot2 only for the first time.
+## install.packages("ggplot2")
+
+## load package
+library(ggplot2)
+
+
+## histogram
+ggplot(data=DATA, aes(Gender)) +
+  geom_histogram(stat="count") 
+
+ggplot(data=DATA, aes(Opinion)) + geom_histogram()
+
+ggplot(data=DATA, aes(Age))     + geom_histogram()
+
+## bindwidth
+ggplot(data=DATA, aes(Age))    + geom_histogram(binwidth=10)
+
+
+
+##==================================================================================
+
+##-------------------
+## Interarrival time
+##-------------------
+DATA2 = read.csv(file="BankArrivals.csv", header=TRUE, sep=",")
+
+ggplot(data=DATA2, aes(Interarrival.Time)) +
+  geom_histogram(binwidth=3.2, colour="black", fill="skyblue") +
+  labs(title = "Inter-arrival Time of Costomers", x = "Inter-arrival Time (Minutes)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+##-------------------
+## Toy Revenue
+##-------------------
+DATA4 = read.csv(file="Toy Revenue.csv", header=TRUE, sep=",")
+names(DATA4)
+
+## deal with date (year-quarter)
+install.packages("zoo")
+library("zoo")
+DATA4$date = as.yearqtr(DATA4$Quarter, format = "Q%q-%Y" )
+
+ggplot(data = DATA4, aes(x = date, y = Revenue, group = 1))+
+  geom_line(size = 0.5)+
+  geom_point(size = 2) +
+  scale_x_yearqtr(format="%Y-Q%q", breaks = DATA4$date) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+##-------------------
+## Baseball Players
+##-------------------
+install.packages("ISLR")
+## - This package contains data sets from ISLR book.
+library(ISLR)
+summary(Hitters)
+
+## histogram
+ggplot(data=Hitters, aes(Salary)) +
+  geom_histogram(binwidth=40, colour="black", fill="skyblue") +
+  labs(title = "Baseball Players' Salary (1987 annual salary on opening day)", x = "Salary (thousands of dollars)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+## mean and histogram
+v_mean = mean(Hitters$Salary, na.rm=TRUE)
+# - Note: "na.rm=TRUE" is an option to remove missing values before mean calculation.
+
+ggplot(data=Hitters, aes(Salary)) +
+  geom_histogram(binwidth=40, colour="black", fill="skyblue") +
+  labs(title = "Baseball Players' Salary (1987 annual salary on opening day)", x = "Salary (thousands of dollars)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_vline(xintercept = v_mean, color="blue", size=1)
+
+
+## median and histogram
+v_med = median(Hitters$Salary, na.rm=TRUE)
+ggplot(data=Hitters, aes(Salary)) +
+  geom_histogram(binwidth=40, colour="black", fill="skyblue") +
+  labs(title = "Baseball Players' Salary (1987 annual salary on opening day)", x = "Salary (thousands of dollars)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_vline(xintercept = v_mean, color="blue", size=1)+
+  geom_vline(xintercept = v_med, color="red", size=1)+
+  annotate("text", x = v_mean, y = 15, angle = 90, label = "mean",  color = "blue",vjust = 1.2, parse = TRUE)+
+  annotate("text", x = v_med,  y = 15, angle = 90, label = "median",color = "red", vjust = 1.2, parse = TRUE)
+
+##----------------------
+## Uniform Distribution
+##----------------------
+## Uniform distribution U(0,1)
+runif(1)
+
+## five random numbers frolloing U(0,1)
+runif(5)
+
+## U(0,100)
+runif(5, min = 0, max = 100)
+
+
+## 1000 uniform random variables
+var1 = runif(1000)
+
+## - summary statistics
+summary(var1) 
+
+## histogram 
+hist(var1)
+
+##----------------------
+## Normal Distribution
+##----------------------
+## standard norml N(0,1)
+rnorm(1)
+
+## five standard normal random numbers 
+rnorm(5)
+
+## Normal random numbers N(mean=50, s.d. = 10)
+rnorm(5, mean = 50, sd = 10)
+
+## 1000 Normal random numbers N(mean=50, s.d. = 10)
+var2 = rnorm(1000, mean = 50, sd = 10)
+
+## - summary statistics
+summary(var2) 
+
+## histogram 
+hist(var2)
+
+
+##----------------------
+## Law of large numbers
+##----------------------
+## Uniform distribution
+varU10    = runif(10,    min = 0, max = 100) 
+varU100   = runif(100,   min = 0, max = 100) 
+varU1000  = runif(1000,  min = 0, max = 100) 
+varU10000 = runif(10000, min = 0, max = 100) 
+
+summary(cbind(varU10, varU100, varU1000,varU10000))
+
+## Normal distribution 
+varN10    = rnorm(10,    mean = 50, sd = 10) 
+varN100   = rnorm(100,   mean = 50, sd = 10) 
+varN1000  = rnorm(1000,  mean = 50, sd = 10) 
+varN10000 = rnorm(10000, mean = 50, sd = 10) 
+
+summary(cbind(varN10, varN100, varN1000,varN10000))
+        
