@@ -1,0 +1,200 @@
+##------------
+## read data 
+##------------
+asx      = read.csv(file="AXJO.csv", header=TRUE, sep=",")
+asx$Date = as.Date(asx$Date)
+
+##------------
+## return 
+##------------
+n      = nrow(asx)
+return = log(asx$Open[2:n]) - log(asx$Open[1:n-1])   
+date   = asx$Date[2:n]
+ret    = data.frame(date, return)
+
+## summary
+summary(ret)
+
+##------------
+## figure 
+##------------
+
+library(ggplot2)
+g1 = ggplot(ret, aes(x=date, y=return)) +
+  geom_line() + 
+  ylab("Montly Return") +
+  xlab("Date")
+
+g1
+
+##---------------
+## rule of thumb  
+##---------------
+m.return = mean(ret$return)
+v.return = sd(ret$return)
+
+c(m.return, v.return)
+
+## 1, 2, & 3 sigma 
+s1 = m.return + 1 * c(-v.return, v.return)
+s2 = m.return + 2 * c(-v.return, v.return)
+s3 = m.return + 3 * c(-v.return, v.return)
+
+## graph 
+g2 = g1 + 
+  geom_hline(yintercept= s1[1], linetype="dashed", color = "green") +
+  geom_hline(yintercept= s1[2], linetype="dashed", color = "green") +
+  geom_hline(yintercept= s2[1], linetype="dashed", color = "orange") +
+  geom_hline(yintercept= s2[2], linetype="dashed", color = "orange") +
+  geom_hline(yintercept= s3[1], linetype="dashed", color = "red") +
+  geom_hline(yintercept= s3[2], linetype="dashed", color = "red")
+
+g2 
+
+## --------------
+## moving window 
+## --------------
+n = nrow(ret)  ## sample size 
+w = 23         ## window size = 23 months (note: actual size is 24)
+
+vec.mean = c() ## empty 
+vec.sd  = c() ## empty 
+
+for(i in 1:(n-w)){
+
+  return.part = ret$return[i:(i+w)]
+  vec.mean = c(vec.mean, mean(return.part) )  
+  vec.sd   = c(vec.sd,   sd(return.part) )
+}
+
+## new data 
+data.move       = ret[(w+1):n,]
+data.move$s2.up = vec.mean + 2 * vec.sd 
+data.move$s2.dw = vec.mean - 2 * vec.sd 
+data.move$sigma = vec.sd 
+
+
+## stock return with a band 
+ggplot(data.move, aes(date)) +
+  geom_line(aes(y = return, colour = "black")) + 
+  geom_line(aes(y = s2.up, colour = "red")) + 
+  geom_line(aes(y = s2.dw, colour = "red")) 
+
+## volatility clustering 
+ggplot(data.move, aes(date)) +
+  geom_line(aes(y = sigma, colour = "red")) 
+
+##---------------
+## Value-at-Risk
+##---------------
+
+VaR = quantile(ret$return, c(0.01, 0.05))
+VaR
+
+g1 + 
+  geom_hline(yintercept= VaR[1], linetype="dashed", color = "green") +
+  geom_hline(yintercept= VaR[2], linetype="dashed", color = "red") 
+  
+##-------------------------------------------------
+## Bootstrap 
+##-------------------------------------------------
+##  browser spending analysis 
+browser = read.csv("web-browsers.csv")
+
+##-------------
+## histogram
+##-------------
+par(mai=c(.8,.8,.1,.1))
+hist(log(browser$spend), freq=FALSE,
+	xaxt="n", main="", xlab="total online spend", col=8, border="grey90")
+lgrid = c(1,10,100,1000,10000,100000)
+axis(1, at=log(lgrid), labels=sprintf("%.0e",lgrid))
+
+##-------------
+# basic stats 
+##-------------
+nrow(browser)
+mean(browser$spend)
+var(browser$spend)/nrow(browser)
+
+xbar = mean(browser$spend)
+xbse = sd(browser$spend)/sqrt(nrow(browser))
+
+xx = seq(1650,2250,length=1000)
+
+par(mai=c(.9,.8,.2,.2))
+plot(xx, dnorm(xx, xbar, xbse), type="l", col="royalblue", lwd=1.5,
+	xlab="average total online spend", ylab="density")
+
+##-------------
+# nonparametric bootstrap
+##-------------
+B   = 1000
+mub = c()
+for (b in 1:B){
+	samp_b = sample.int(nrow(browser), replace=TRUE)
+	mub    = c(mub, mean(browser$spend[samp_b]))
+}
+sd(mub)
+
+## figure   
+par(mai=c(.8,.8,.2,.2))
+hist(mub, main="", xlab="average total online spend", 
+	col=8, border="grey90", freq=FALSE)
+lines(xx, dnorm(xx, xbar, xbse), col="royalblue", lwd=1.5)
+
+##---------------------
+## parametric bootstrap
+##---------------------
+xbar = mean(browser$spend)
+sig2 = var(browser$spend)
+
+B   = 1000
+mus = c()
+for(b in 1:B){
+  xsamp = rnorm(1e4, xbar, sqrt(sig2))
+  mus   = c(mus, mean(xsamp))
+}
+sd(mus)
+sqrt(sig2/1e4)
+
+## usual estiamtion of variance
+smallsamp = browser$spend[sample.int(nrow(browser),100)]
+s         = sd(smallsamp) # sample variance
+s
+sd(browser$spend)
+s/sd(browser$spend)
+
+## CI bootstrap
+eb = c()
+for (b in 1:B){
+	sb = sd(smallsamp[sample.int(100, replace=TRUE)]) 
+	eb = c(eb, sb-s)
+}
+mean(eb)
+tvals = quantile(eb, c(0.05, 0.95))
+sd(mub)
+
+##----------------------
+## regression analysis
+##----------------------
+summary( glm( log(spend) ~ broadband + anychildren, data=browser) )
+
+# nonparametric bootstrap
+B     = 1000
+betas = c()
+for (b in 1:B){
+	samp_b = sample.int(nrow(browser), replace=TRUE)
+	reg_b  = glm(log(spend) ~ broadband + anychildren, data=browser[samp_b,])
+	betas  = rbind(betas, coef(reg_b))
+}
+head(betas)
+
+cor(betas[,"broadband"], betas[,"anychildren"])
+
+xx = seq(min(betas[,2]),max(betas[,2]),length=100)
+
+par(mai=c(.8,.8,.2,.2))
+hist(betas[,2], main="", xlab="broadband coefficient", 
+	col=8, border="grey90", freq=FALSE)
+lines(xx, dnorm(xx, 0.55285, 0.04357), col="royalblue", lwd=1.5)
