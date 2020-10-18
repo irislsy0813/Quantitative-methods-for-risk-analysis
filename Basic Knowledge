@@ -8,8 +8,8 @@ stocks      = read.csv("stocks.csv")
 stocks$RET  = as.numeric(as.character(stocks$RET))
 stocks$date = as.Date(as.character(stocks$date), format="%Y%m%d")
 stocks      = stocks %>% filter(TICKER!="" & RET!="")
-dups        = which(duplicated(stocks[,c("TICKER","date")]))
-stocks      = stocks[-dups,]
+dups        = which(duplicated(stocks[,c("TICKER","date")])) ##提取重复元素
+stocks      = stocks[-dups,]  ##删除重复元素
 
 ## new variable 
 stocks$month = paste(format(stocks$date, "%Y-%m"),"-01",sep="")
