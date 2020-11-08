@@ -91,8 +91,13 @@ ggplot(data.move, aes(date)) +
 VaR = quantile(ret$return, c(0.01, 0.05))
 VaR
 
+##---------------
+        1%          5% 
+-0.10688872 -0.06297013 
+##---------------
+
 g1 + 
-  geom_hline(yintercept= VaR[1], linetype="dashed", color = "green") +
+  geom_hline(yintercept= VaR[1], linetype="dashed", color = "green") +  ##有百分之1的概率赔10%
   geom_hline(yintercept= VaR[2], linetype="dashed", color = "red") 
   
 ##-------------------------------------------------
@@ -127,13 +132,13 @@ plot(xx, dnorm(xx, xbar, xbse), type="l", col="royalblue", lwd=1.5,
 	xlab="average total online spend", ylab="density")
 
 ##-------------
-# nonparametric bootstrap
+# nonparametric bootstrap--bootstrap for regression
 ##-------------
 B   = 1000
 mub = c()
 for (b in 1:B){
-	samp_b = sample.int(nrow(browser), replace=TRUE)
-	mub    = c(mub, mean(browser$spend[samp_b]))
+	samp_b = sample.int(nrow(browser), replace=TRUE) ##随机生成index
+	mub    = c(mub, mean(browser$spend[samp_b])) ##通过随机ndex，找到observation
 }
 sd(mub)
 
