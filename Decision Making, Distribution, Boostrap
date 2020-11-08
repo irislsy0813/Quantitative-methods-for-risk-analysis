@@ -36,7 +36,7 @@ v.return = sd(ret$return)
 c(m.return, v.return)
 
 ## 1, 2, & 3 sigma 
-s1 = m.return + 1 * c(-v.return, v.return)
+s1 = m.return + 1 * c(-v.return, v.return) ##1 sigma= ,mean+1*(-sd,sd)
 s2 = m.return + 2 * c(-v.return, v.return)
 s3 = m.return + 3 * c(-v.return, v.return)
 
