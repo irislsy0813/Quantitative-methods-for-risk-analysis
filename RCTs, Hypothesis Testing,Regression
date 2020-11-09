@@ -1,0 +1,63 @@
+rm(list = ls())
+
+##----------------------------------------------------------
+## data 
+##----------------------------------------------------------
+P = read.csv("P.csv")
+head(P)
+summary(P)
+dim(P) ##多少行。多少个variable
+table(P$selected)
+
+## treatment variable 
+d1 = (P$selected == 1) ## treatment group 
+d0 = (P$selected == 0) ## control group 
+
+##----------------------------------------------------------
+## Average Treatment Effect (ATE)
+##----------------------------------------------------------
+##-------------
+## ATE  
+##-------------
+y1 = as.matrix(P$doc_any_12m[d1])  ## treated group 
+y0 = as.matrix(P$doc_any_12m[d0])  ## treated group 
+y1.mean = mean(y1) 
+y0.mean = mean(y0)
+ATE     = y1.mean - y0.mean
+
+ATE
+
+## Plot 
+barplot(c(y1.mean, y0.mean), main="Averag Usage",
+           names.arg=c("Treatment Group", "Control Group"))
+
+##-------------
+## bootstrap 
+##-------------
+B     = 1000
+ATE_B = c()
+for (b in 1:B){
+  samp_b0 = sample.int(nrow(y0), replace=TRUE)
+  samp_b1 = sample.int(nrow(y1), replace=TRUE)
+  ATE_b   = mean(y1[samp_b1]) - mean(y0[samp_b0])
+  ATE_B   = c(ATE_B, ATE_b)
+}
+ATE_B
+
+## Confidence Interval 
+CI95 = quantile(ATE_B, c(0.025, 0.975))
+CI95
+
+hist(ATE_B, breaks = 50)
+abline(v=CI95[1] ,col="red")
+abline(v=CI95[2] ,col="red")
+
+##----------------------------------------------------------
+## ATE regression 
+##----------------------------------------------------------
+fit = glm(doc_any_12m ~ selected , data = P)
+summary(fit)
+
+## Weighted ATE regression
+fit.w = glm(doc_any_12m ~ selected, data = P, weights=weights)
+summary(fit.w)
