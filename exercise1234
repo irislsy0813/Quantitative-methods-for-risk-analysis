@@ -134,3 +134,61 @@ for (b in 1:B){
 ## histogram  
 hist(mub)
 sd(mub)
+
+
+##=================================================
+
+library(MASS)
+DATA = MASS::bacteria
+
+summary(DATA)
+
+## y presence or absence: a factor with levels n and y.
+## ap active/placebo: a factor with levels a and p.
+## hilo hi/low compliance: a factor with levels hi amd lo.
+## week numeric: week of test.
+## ID subject ID: a factor.
+## trt a factor with levels placebo, drug and drug+, a re-coding of ap and hilo.
+
+##----------------------------------------------------------
+## Data 
+##----------------------------------------------------------
+DATA$outcome   = (DATA$y  == "y")
+DATA$treatment = (DATA$ap == "a")
+summary(DATA)
+
+##----------------------------------------------------------
+## Average Treatment Effect (ATE)
+##----------------------------------------------------------
+##-------------
+## ATE  
+##-------------
+y1 = as.matrix(DATA$outcome[DATA$treatment==TRUE])  ## treated group 
+y0 = as.matrix(DATA$outcome[DATA$treatment==FALSE])  ## control group 
+y1.mean = mean(y1) 
+y0.mean = mean(y0)
+ATE     = y1.mean - y0.mean
+ATE
+
+##-------------
+## Bootstrap   
+##-------------
+B     = 1000
+ATE_B = c()
+for (b in 1:B){
+  samp_b0 = sample.int(nrow(y0), replace=TRUE)
+  samp_b1 = sample.int(nrow(y1), replace=TRUE)
+  ATE_b   = mean(y1[samp_b1]) - mean(y0[samp_b0])
+  ATE_B   = c(ATE_B, ATE_b)
+}
+
+## Confidence Interval 
+CI95 = quantile(ATE_B, c(0.025, 0.975))
+CI95
+  
+##-------------
+## regression  
+##-------------
+fit = glm(outcome ~ treatment, data = DATA)
+summary(fit)
+
