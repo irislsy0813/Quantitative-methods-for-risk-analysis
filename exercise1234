@@ -1,5 +1,5 @@
 
-## Exercise1111111---------------------------------------------------------------
+## Exercise2222---------------------------------------------------------------
 
 ## clear data and variables  
 rm(list=ls())
@@ -68,7 +68,7 @@ ggplot(DATA2, aes(x=Date, y=Open)) +
   
   
 ##----------------------------------------------------------
-## Exercise22222--------------------------------------------
+## Exercise3333--------------------------------------------
   
 rm(list=ls()) ## clear data and variables  
 
@@ -141,7 +141,7 @@ sd(mub)
 
 
 ##=================================================
-## Exercise33333------------------------------------
+## Exercise44444------------------------------------
 
 
 library(MASS)
@@ -197,4 +197,105 @@ CI95
 ##-------------
 fit = glm(outcome ~ treatment, data = DATA)
 summary(fit)
+
+
+##=================================================
+## Exercise5555------------------------------------
+
+
+rm(list=ls()) ## clear data and variables  
+
+##-------------------------------------------------
+## Advertisement  
+##-------------------------------------------------
+## (1) data 
+AD = read.csv("Advertising.csv") 
+names(AD)
+summary(AD)
+
+## (2) scatter plot and simple linear regression 
+## TV
+plot(AD$TV,AD$sales)
+fit.a = glm(sales~TV, data = AD)
+summary(fit.a)
+lines(AD$TV, fit.a$fitted.values) ##linear regression 
+
+## radio 
+plot(AD$radio,AD$sales)
+fit.b = glm(sales~radio, data = AD)
+summary(fit.b)
+lines(AD$radio, fit.b$fitted.values)
+
+## newspaper
+plot(AD$newspaper,AD$sales)
+fit.c = glm(sales~newspaper, data = AD)
+summary(fit.c)
+lines(AD$newspaper, fit.c$fitted.values)
+
+## (2) regression (level-level) 
+fit1 = glm(sales~TV + radio + newspaper, data = AD)
+summary(fit1)
+
+## (3) regression (log-level)  
+fit2 = glm(log(sales)~TV + radio + newspaper, data = AD)
+summary(fit2)
+
+## (4) regression (log-log)  
+fit3 = glm( log(sales)~ log(TV) + log(radio) + log(newspaper), data = AD)
+summary(fit3)
+
+fit3 = glm( log(sales)~ log(TV) + radio + log(newspaper), data = AD)
+summary(fit3)
+
+## - deviance => R2 
+1-fit3$deviance / fit3$null.deviance
+
+## (5) regression (level-log)  
+fit4 = glm( sales~ log(TV) + radio + log(newspaper), data = AD)
+summary(fit4)
+
+## (6) R2
+fit5 = lm( sales~ log(TV) + radio + log(newspaper), data = AD)
+summary(fit5)
+
+
+
+
+##=================================================
+## Exercise6666------------------------------------
+
+##-------------------------------------------------
+## Credit card   
+##-------------------------------------------------
+## data 
+library(ISLR)
+summary(Default)
+
+## logit 
+fit.logit1 = glm(default ~ student, data = Default, family = "binomial")
+summary(fit.logit1)
+
+## logit 
+fit.logit2 = glm(default ~ student + balance + income, data = Default, family = "binomial")
+summary(fit.logit2)
+
+
+##-------------------------------------------------
+## Stock Return 
+##-------------------------------------------------
+DATA = read.csv("dja.csv")
+dja  = DATA$DJ
+n    = length(dja)  ## the size of time series 
+
+## Stock price  
+plot(dja, type="l", col=4, xlab="day", ylab="DJA")
+acf(dja, lwd=2)
+ARdj = glm(dja[2:n] ~ dja[1:(n-1)])
+summary(ARdj)
+
+## Stock Return: AR(1) model with returns 
+returns = (dja[2:n]-dja[1:(n-1)])/dja[1:(n-1)]
+plot(returns, type="l", col=3, xlab="day", ylab="DJA Return")
+acf(returns, lwd=2)
+summary( glm(returns[2:n] ~ returns[1:(n-1)]) )
 
