@@ -1,0 +1,136 @@
+## clear data and variables  
+rm(list=ls())
+
+##---------------------------------------------------------------
+## Melbourne House   
+##---------------------------------------------------------------
+## read data 
+DATA1 = read.csv(file="house_MEL.csv", header=TRUE, sep=",")
+
+## names 
+names(DATA1)
+
+## summary
+summary(DATA1)
+
+## mean and median  
+mean(DATA1$price)
+median(DATA1$price)
+
+## histogram  
+hist(DATA1$price)
+
+## histogram by ggplot2
+library(ggplot2)
+
+## (1) histogram 
+ggplot(data=DATA1, aes(price)) + 
+  geom_histogram(binwidth=500000, colour="black", fill="skyblue") +  
+  labs(title = "Housing Prices in Melbourne", x = "Housing Price (dollars)") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+## (2) histogram with mean and median 
+v_mean = mean(DATA1$price)
+v_med  = median(DATA1$price)
+
+ggplot(data=DATA1, aes(price)) + 
+  geom_histogram(binwidth=500000, colour="black", fill="skyblue") +  
+  labs(title = "Housing Prices in Melbourne", x = "Housing Price (dollars)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_vline(xintercept = v_mean, color="red" , size=1)+
+  geom_vline(xintercept = v_med,  color="blue", size=1) +
+  annotate("text", x = v_mean, y = 2500, angle = 90, label = "Mean",   color = "red", vjust = 1.2, parse = TRUE)+
+  annotate("text", x = v_med,  y = 5000, angle = 90, label = "Median", color = "blue", vjust = 1.2, parse = TRUE)
+
+
+##---------------------------------------------------------------
+## ASX  
+##---------------------------------------------------------------
+## read data 
+DATA2 = read.csv(file="AXJO.csv", header=TRUE, sep=",")
+
+## summary
+summary(DATA2)
+
+## data format 
+DATA2$Date = as.Date(DATA2$Date, format="%Y-%m-%d")
+
+## summary: check again 
+summary(DATA2)
+
+## time series plot 
+ggplot(DATA2, aes(x=Date, y=Open)) +
+  geom_line(color = "#FC4E07", size = 2) + 
+  xlab("Date")
+  
+  
+##----------------------------------------------------------
+  
+rm(list=ls()) ## clear data and variables  
+
+##---------------------------------------------------------------
+## Monte Carlo Simulation
+##---------------------------------------------------------------
+S  = 5000
+R1 = rnorm(S, 5, 10)  ## mean = 5, standard deviation = 10 (variance = 10 x 10) 
+R2 = rnorm(S, 2, 4)   ## mean = 2, standard deviation = 4  (variance = 4 x 4)
+
+## distribution  
+hist(R1)
+hist(R2)
+hist(R)
+
+## R1
+mean(R1)
+var(R1)
+quantile(R1, probs = 0.05)
+
+## R2
+mean(R2)
+var(R2)
+quantile(R2, probs = 0.05)
+
+R = 0.5 * R1 + 0.5 * R2
+
+## R 
+mean(R)
+var(R)
+quantile(R, probs = 0.05)
+
+
+##---------------------------------------------------------------
+## Data Analysis 
+##---------------------------------------------------------------
+## - This package contains data sets from ISLR book.
+library(ISLR)
+
+## variables in the data set 
+names(Hitters)
+
+## summary
+summary(Hitters)
+summary(Hitters$Salary)
+
+## mean (problem "NA")  
+mean(Hitters$Salary)
+
+## Remove "NA"
+DATA = na.omit(Hitters)
+
+## mean and variance 
+xbar = mean(DATA$Salary)
+sig2 = var(DATA$Salary)
+xbar
+sig2
+
+# nonparametric bootstrap
+B   = 5000
+mub = c()
+for (b in 1:B){
+  samp_b = sample.int(nrow(DATA), replace=TRUE)
+  mub    = c(mub, mean(DATA$Salary[samp_b]))
+}
+
+## histogram  
+hist(mub)
+sd(mub)
