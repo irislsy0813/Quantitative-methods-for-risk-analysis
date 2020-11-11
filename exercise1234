@@ -263,7 +263,6 @@ summary(fit5)
 
 ##=================================================
 ## Exercise6666------------------------------------
-
 ##-------------------------------------------------
 ## Credit card   
 ##-------------------------------------------------
@@ -286,10 +285,11 @@ summary(fit.logit2)
 DATA = read.csv("dja.csv")
 dja  = DATA$DJ
 n    = length(dja)  ## the size of time series 
-
+n
 ## Stock price  
 plot(dja, type="l", col=4, xlab="day", ylab="DJA")
 acf(dja, lwd=2)
+acf(dja, plot=FALSE)
 ARdj = glm(dja[2:n] ~ dja[1:(n-1)])
 summary(ARdj)
 
@@ -298,4 +298,5 @@ returns = (dja[2:n]-dja[1:(n-1)])/dja[1:(n-1)]
 plot(returns, type="l", col=3, xlab="day", ylab="DJA Return")
 acf(returns, lwd=2)
 summary( glm(returns[2:n] ~ returns[1:(n-1)]) )
+
 
