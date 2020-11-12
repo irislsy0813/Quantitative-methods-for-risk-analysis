@@ -408,4 +408,106 @@ sum(beta.bic!=0)                ##
 log(fit.lasso$lambda[BICseg] )  ## log(lambda)
 
 
+##==================================================
+## Exercise88888------------------------------------
+##==================================================
+rm(list = ls()) ## clear 
 
+##------------------------------------------------
+## K-NN: credit 
+##------------------------------------------------
+## data: German credit data
+credit = read.csv("credit.csv")
+set.seed(123) ## seed for random numbers 
+
+## boxplot  
+boxplot(duration ~ Default, data = credit)
+boxplot(amount   ~ Default, data = credit)
+
+## convert columns to mean-zero sd-one
+x = scale(credit[,c("duration", "amount")]) # column 10 is the class label
+apply(x,2,sd)        # 2=colum,x按照列计算sd
+
+## k-nn
+library(class)
+
+## Step 1: split 
+n    = nrow(credit)        ## the full smaple size 
+test = sample(1:n, 0.10*n) ## randomly select 10% observations  
+table(credit[test,]$Default)
+
+## Step 2: estimation 
+nn1 = knn(train=x[-test,], test=x[test,], cl=credit$Default[-test], k=1)
+nn5 = knn(train=x[-test,], test=x[test,], cl=credit$Default[-test], k=5)
+
+## how many defaults from K-NN prediction 
+table(nn1)
+table(nn5)
+
+## compare 
+data.frame(credit$Default[test], nn1, nn5)
+
+## 2 x 2 matrix 
+mat1 = table(nn1,credit$Default[test])
+mat5 = table(nn5,credit$Default[test])
+
+mat1
+mat5
+
+## False positive rate 
+FPR1 = mat1[2,1] / (mat1[1,1] + mat1[2,1])
+FPR5 = mat5[2,1] / (mat5[1,1] + mat5[2,1])
+
+## False Negavie rate 
+FNR1 = mat1[1,2] / (mat1[1,2] + mat1[2,2])
+FNR5 = mat5[1,2] / (mat5[1,2] + mat5[2,2])
+
+c(FPR1, FPR5)  ## False Positive Rate
+c(FNR1, FNR5)  ## False Negative Rate 
+
+##------------------------------------------------
+## Lasso for spam email  
+##------------------------------------------------
+rm(list = ls()) ## clear 
+
+library(gamlr)
+source("roc.R")
+set.seed(12345)
+
+## data 
+email = read.csv("spam.csv")
+
+## summary stat and variables  
+summary(email)
+names(email)  
+
+##-----------
+## Lasso 
+##-----------
+## Step 1: define x and y
+x = sparse.model.matrix(spam ~ ., data = email)[,-1]
+y = email$spam
+
+n    = nrow(email)             ## sample size 
+test = sample.int(n, 0.5*n)    ## 50-50 split
+
+## Step 2: estimation 
+fit    = gamlr(x[-test,], y[-test], family = "binomial")
+fit.cv = cv.gamlr(x[-test,], y[-test], family="binomial", verb=TRUE)
+
+## figure 
+plot(fit)
+plot(fit.cv)
+
+sum( coef(fit.cv, s="min") != 0) # min
+sum( coef(fit)    != 0) # AICc
+
+##-----------------------
+## ROC with out-of-sample 
+##-----------------------
+## out-of-sample and actural outcomes 
+y.pred = predict(fit, x[test,], type = "response")
+y.act  = email$spam[test]
+
+## ROC
+roc(p = y.pred, y = y.act, bty = "n", main = "out-of-sample")  
