@@ -300,3 +300,112 @@ acf(returns, lwd=2)
 summary( glm(returns[2:n] ~ returns[1:(n-1)]) )
 
 
+
+##=================================================
+## Exercise7777------------------------------------
+##-------------------------------------------------
+
+## clear data and variables  
+rm(list=ls())
+
+## packages 
+library(gamlr) ## package for lasso and AICc 
+library(boot)  ## for cross-validation 
+
+##-------------------------------------------------
+## Bias-variance tradeoff 
+##-------------------------------------------------
+## (1) data generating process 
+set.seed(2020)
+n = 100 ## sampl size 
+x = seq(from=1, to=n) ##序列( from, from+/-1, ..., to)
+y = -50 + x - 0.01 * x^2 + 3 * rnorm(n) ## DGP
+
+DATA = data.frame(x, y)
+names(DATA)
+summary(DATA)
+
+## (2) plot 
+plot(x, y, cex=1) ##100scale
+plot(x, y, type="o", cex=1, lwd=1) ## connecting dots 
+
+## (3) regression 
+res1 = glm(y~x)
+res2 = glm(y~poly(x,2) )
+res3 = glm(y~poly(x,3) )
+res4 = glm(y~poly(x,4) )
+
+## (4) R2
+1 - res1$deviance / res1$null.deviance
+1 - res2$deviance / res2$null.deviance
+1 - res3$deviance / res3$null.deviance
+1 - res4$deviance / res4$null.deviance
+
+## (5) IC 
+c( AIC(res1),  AIC(res2),  AIC(res3), AIC(res4) )
+c( AICc(res1), AICc(res2), AICc(res3), AICc(res4) )
+c( BIC(res1),  BIC(res2),  BIC(res3), BIC(res4))
+
+## (6) fit 
+plot(x, y, cex=1)
+lines(x, res1$fitted.values)
+lines(x, res2$fitted.values, col="green")
+lines(x, res3$fitted.values, col="blue")
+lines(x, res4$fitted.values, col="red")
+
+##-------------------------------------------------
+## Data analysis: orange juce  
+##-------------------------------------------------
+## (1) data 
+oj = read.csv("oj.csv") 
+head(oj)
+summary(oj)
+
+## (2) Models 
+fit1 = glm(log(sales) ~ log(price),                data=oj)
+fit2 = glm(log(sales) ~ log(price) + brand,        data=oj)
+fit3 = glm(log(sales) ~ log(price) * brand ,       data=oj)
+fit4 = glm(log(sales) ~ log(price) * brand * feat, data=oj)
+
+## (3) Cross-validation 
+cv1 = cv.glm(oj, fit1, K=5)
+cv2 = cv.glm(oj, fit2, K=5)
+cv3 = cv.glm(oj, fit3, K=5)
+cv4 = cv.glm(oj, fit4, K=5)
+
+c( cv1$delta[1], cv2$delta[1], cv3$delta[1], cv4$delta[1])
+
+## (4) IC
+c( AIC(fit1),  AIC(fit2),  AIC(fit3),  AIC(fit4)  )
+c( AICc(fit1), AICc(fit2), AICc(fit3), AICc(fit4) )
+c( BIC(fit1),  BIC(fit2),  BIC(fit3),  BIC(fit4)  )
+
+## (5) Forward stepwise procedure 是一种逐步回归的类型，它从一个空模型开始，然后逐个添加变量。在每个前进的步骤中，都将添加一个变量。
+## null model
+null = glm(log(sales) ~ 1, data = oj)
+fwd  = step(null, scope=formula(fit4), dir="forward")
+length(coef(fwd)) 
+length(coef(fit4))
+
+## (6) LASSO  
+## regressors and dependent variables for the full model (fit4)
+mat.reg   = sparse.model.matrix(log(sales) ~ log(price) * brand * feat, data=oj)[,-1] # do -1 to drop intercept!
+vec.y     = log(oj$sales)
+fit.lasso = gamlr(mat.reg, vec.y)
+plot(fit.lasso) # path plot 
+
+## AICc for lasso 
+beta.aicc = coef(fit.lasso)  ## gamlr uses AICc by default 
+sum(beta.aicc !=0 )          ## how many non-zero parameters? 
+beta.aicc ##parameter name
+AICseg = which.min( AICc(fit.lasso) )
+log(fit.lasso$lambda[AICseg])  ## log(lambda)
+
+## BIC for lasso
+BICseg   = which.min( BIC(fit.lasso) )
+beta.bic = coef(fit.lasso, s=BICseg)
+sum(beta.bic!=0)                ## 
+log(fit.lasso$lambda[BICseg] )  ## log(lambda)
+
+
+
