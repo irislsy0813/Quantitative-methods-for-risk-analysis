@@ -511,3 +511,248 @@ y.act  = email$spam[test]
 
 ## ROC
 roc(p = y.pred, y = y.act, bty = "n", main = "out-of-sample")  
+
+##==================================================
+## Exercise99999------------------------------------
+##==================================================
+rm(list = ls()) ## clear 
+
+##--------------------------------------------------
+## Q1 text ban 
+##--------------------------------------------------
+## read data 
+DATA1 = read.csv("txtban.csv")
+summary(DATA1)
+
+## a. treatment (1) vs control (0) 
+table(DATA1$year, DATA1$ban)
+
+library(dplyr)
+gr <- DATA1 %>% filter(ban==1)
+table(gr$year, gr$state)
+
+## b. factor 
+DATA1$state = factor(DATA1$state)
+DATA1$time  = factor(DATA1$time)
+
+## c. regression without weight >> Policy variable: ban
+f1 = glm(laccident ~ ban + lpop + lunemp + permale + lrgastax + time + state, data = DATA1)
+summary(f1)
+
+## d. regression without weight >> Policy variables: strongban + weakban
+f2 = glm(laccident ~ strongban + weakban + lpop + lunemp + permale+ lrgastax + time + state, data = DATA1)
+summary(f2)
+
+## e. with weight 
+f3 = glm(laccident ~ ban + lpop + lunemp + permale + lrgastax + time + state, data = DATA1, weight = pop )
+summary(f3)
+
+f4 = glm(laccident ~ strongban + weakban + lpop + lunemp + permale + lrgastax + time + state, data = DATA1, weight = pop )
+summary(f4)
+
+
+##--------------------------------------------------
+## Q2 data 
+##--------------------------------------------------
+rm(list = ls()) ## clear 
+
+DATA = read.csv("txtban.csv")
+
+## a. preliminary transformation 
+DATA$state     = factor(DATA$state)
+DATA$time      = factor(DATA$time)
+DATA$strongban = 1 * DATA$strongban  ## logical => numerical
+DATA$weakban   = 1 * DATA$weakban
+summary(DATA)
+names(DATA)  
+
+## b. key variable (separate key variables and control variables)
+## key variables
+y  = DATA$laccident  ## dependent
+d  = DATA$ban        ## policy
+ds = DATA$strongban
+dw = DATA$weakban
+t  = DATA$time       ## time
+s  = DATA$state      ## state
+w  = DATA$pop        ## weight 
+
+## control variables 
+names(DATA)           ## check which the control variables 
+control = DATA[,5:8]
+names(control)        ## make sure
+
+##--------------------------------------------------
+## c. baseline regression  
+##--------------------------------------------------
+## regression with weight 
+f1 = glm(y ~ d + t + s +. , data = control, weight = w)
+summary(f1)$coef["d",]
+
+g1 = glm(y ~ ds + dw + t + s +. , data = control, weight = w)
+summary(g1)$coef[c("ds","dw"),]
+
+##--------------------------------------------------
+## d. Many variables
+##--------------------------------------------------
+## ban 
+f2 = glm(y ~ d + t + s + s*. , data=control, weight= w)
+summary(f2)
+
+summary(f1)$coef["d",]
+summary(f2)$coef["d",]
+
+## sample size vs # prameters 
+dim(model.matrix(formula(f2), data=control))
+
+## strong and weak ban 
+g2 = glm(y ~ ds+dw + t + s + s*., data=control, weight= w)
+summary(g2)
+
+summary(g1)$coef[c("ds","dw"),]
+summary(g2)$coef[c("ds","dw"),]
+
+##--------------------------------------------------
+## e. single machine learning  
+##--------------------------------------------------
+library(glmnet) ##因为有wight
+
+## regressors 
+x   = sparse.model.matrix( ~ t + s + s*., data=control)[,-1]
+dim(x) ## obs vs reg
+
+## ban 
+f3 = cv.glmnet(cbind(d,x),y, weights = w)
+coef(f3)["d",]              ## effect is CV selected <0
+sum(coef(f3)!=0)
+
+## strong and weak bans 
+g3 = cv.glmnet(cbind(ds, dw, x),y, weights = w)
+coef(g3)[c("ds","dw"),]     ## effect is CV selected <0
+sum(coef(g3)!=0)
+
+##--------------------------------------------------
+## f. double machine learning  
+##--------------------------------------------------
+## ban 
+##- - step 1 - -
+treat = cv.glmnet(x, d, lmr=1e-3, weight=w)  ##x control d policy treat=dhat
+## - Note: we set lambda.min.ratio=1e-3 because otherwise we don't get a path
+##   out to complex enough models (i.e. cv err is still decreasing at termination)
+plot(treat)  ##minimun=205
+
+## prediction result
+dhat = drop( predict(treat, x, select="min", weight=w) )
+summary(dhat)
+
+## correlation 
+cor(dhat,d) ##接近1，很好
+
+# - - step2: lasso - - 
+f4 = cv.glmnet(cbind(d,dhat,x), y, free=2, lmr=1e-3, weight=w)
+## - with this (2nd column) included unpenalized
+##free=2 不drop dhat
+
+## result 
+sum(coef(f4)!=0)
+coef(f4, select="min")["d",] 
+# AICc says ban (CL interval - insig.) has no causal effect.
+
+
+## strong and weak ban
+##- - step 1 - -
+treat.s = cv.glmnet(x, ds, lmr=1e-3, weight=w)
+plot(treat.s)
+
+treat.w = cv.glmnet(x, dw, lmr=1e-3, weight=w)
+plot(treat.w)
+
+## prediction result
+dhat.s = drop( predict(treat.s, x, select="min", weight=w) )
+dhat.w = drop( predict(treat.w, x, select="min", weight=w) )
+summary(dhat.s)
+summary(dhat.w)
+
+## correlation 
+cor(dhat.s,ds)
+cor(dhat.w,dw)
+
+# - - step2: lasso - - 
+g4 = cv.glmnet(cbind(ds, dw,dhat.s, dhat.w, x), y, free=c(3,4), lmr=1e-3, weight=w)
+## - with this (3rd and 4th column) included unpenalized
+
+## result 
+sum(coef(g4)!=0)
+coef(g4, select="min")[c("ds","dw"),] # AICc selection for lamuda 
+
+##--------------------------------------------------
+## Comparison  
+##--------------------------------------------------
+## ban 
+summary(f1)$coef["d",]
+summary(f2)$coef["d",]
+coef(f3, select="min")["d",]
+coef(f4, select="min")["d",]
+
+## strong and weak ban  
+summary(g1)$coef[c("ds","dw"),]
+summary(g2)$coef[c("ds","dw"),]
+coef(g3, select="min")[c("ds","dw"),]
+coef(g4, select="min")[c("ds","dw"),]
+
+##==========================================================
+ ExerciseXXXXXXXXXXXXXXX------------------------------------
+##==========================================================
+
+library(Ecdat)  ## <== Data library 
+library(rpart)
+library(rpart.plot)
+  
+##----------------------------------------------------------
+## Dctor visit   
+##----------------------------------------------------------
+DATA1 = Ecdat::DoctorContacts
+
+summary(DATA1)
+names(DATA1)
+head(DATA1, 10)
+
+## mdu: number of outpatient visits to a medical doctor
+summary(DATA1$mdu)
+hist(DATA1$mdu)
+
+## variable 0/1
+DATA1$doctor = NA
+DATA1$doctor[DATA1$mdu==0] = 0
+DATA1$doctor[DATA1$mdu>=1] = 1
+
+summary(DATA1)
+
+## tree 1 
+fit.tree1  = rpart(doctor ~ lc+ idp+lpi +health+ linc+age+sex, data= DATA1, method = "class")
+rpart.plot(fit.tree1, type =1) ##type =1 layout
+
+## tree 2 
+fit.tree2  = rpart(doctor ~ lc+ idp+lpi +health+ linc+age+sex+lfam, data= DATA1, method = "class")
+rpart.plot(fit.tree2, type =1)
+
+##----------------------------------------------------------
+## cigarette 
+##----------------------------------------------------------
+DATA2 = Ecdat::Cigarette
+
+summary(DATA2)
+names(DATA2)
+head(DATA2, 10)
+
+
+## tree 
+DATA2$tax.real = DATA2$taxs / DATA2$cpi
+
+fit.tree3  = rpart(packpc ~ tax.real, data= DATA2, method = "anova")
+rpart.plot(fit.tree3, type =1)
+
+## tree 
+DATA2$inc = (DATA2$income / DATA2$pop) / DATA2$cpi
+
+fit.tree4  = rpart(packpc ~ inc+ tax.real, data= DATA2, method = "anova")
+rpart.plot(fit.tree4, type =1)
